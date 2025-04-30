@@ -1,0 +1,64 @@
+import json
+import pandas as pd
+import time
+
+# === 路径配置 ===
+input_path = r"E:\Communication\concat_congressmeta\flattened_Twitterdata.json"
+json_output_path = r"E:\Communication\concat_congressmeta\flattened_Twitter.json"
+
+# === 开始计时 ===
+start_time = time.time()
+
+# === Step 1: 读取原始 JSON 文件 ===
+with open(input_path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+print("✅ JSON 文件读取完成")
+
+# === Step 2: 展开嵌套字段 ===
+df = pd.json_normalize(data, sep=".")
+
+# === Step 3: 检查重复列名 ===
+# 先检查是否有重复列名
+duplicate_cols = df.columns[df.columns.duplicated()].tolist()
+if duplicate_cols:
+    print(f"⚠️ 发现重复列名: {duplicate_cols}")
+
+# === Step 4: 重命名列，避免重复 ===
+# 创建一个新的列名列表，处理前缀和重复
+new_columns = []
+seen_columns = set()
+
+for col in df.columns:
+    # 处理 user. 前缀
+    new_col = col.replace("user.", "") if col.startswith("user.") else col
+    
+    # 处理重复列名
+    if new_col in seen_columns:
+        counter = 1
+        while f"{new_col}_{counter}" in seen_columns:
+            counter += 1
+        new_col = f"{new_col}_{counter}"
+    
+    new_columns.append(new_col)
+    seen_columns.add(new_col)
+
+# 应用新列名
+df.columns = new_columns
+
+# === Step 5: 打印列名 ===
+print("\n📌 所有列名（已展开、已重命名）:")
+for col in df.columns:
+    print(col)
+
+# === Step 6: 打印行列数 ===
+print(f"\n🧾 行数: {df.shape[0]}")
+print(f"🧾 列数: {df.shape[1]}")
+
+# === Step 7: 保存为新的 JSON 文件 ===
+df.to_json(json_output_path, orient="records", force_ascii=False, indent=2)
+print(f"\n✅ JSON 已保存到: {json_output_path}")
+
+# === 总耗时 ===
+end_time = time.time()
+print(f"\n⏱️ 程序总耗时: {end_time - start_time:.2f} 秒")
